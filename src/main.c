@@ -6,35 +6,29 @@
 
 int main(void)
 {
-    // Pointer used by getline() to store the input line
     char *line = NULL;
-
-    // Size of the allocated input buffer
     size_t len = 0;
-
-    // Array to store command and its arguments
     char *args[64];
 
     while (1)
     {
-        // Display shell prompt
+        // Display prompt
         printf("shellforge$ ");
         fflush(stdout);
 
-        // Read user input
-        // Ctrl+D causes getline() to return -1
+        // Read command
         if (getline(&line, &len, stdin) == -1)
         {
             printf("\n");
             break;
         }
 
-        // Remove newline character
+        // Remove newline
         line[strcspn(line, "\n")] = '\0';
 
         int i = 0;
 
-        // Split input into tokens using space and tab
+        // Split command into arguments
         char *token = strtok(line, " \t");
 
         while (token != NULL && i < 63)
@@ -43,49 +37,66 @@ int main(void)
             token = strtok(NULL, " \t");
         }
 
-        // Last element must be NULL for execvp()
+        // execvp() requires NULL at the end
         args[i] = NULL;
 
-        // If user enters nothing, show prompt again
+        // Empty input
         if (i == 0)
         {
             continue;
         }
 
-        // Exit command
+        // Exit shell
         if (strcmp(args[0], "exit") == 0)
         {
             break;
         }
 
-        // Create child process
+        // =========================
+        // WEEK 5: cd COMMAND
+        // =========================
+        if (strcmp(args[0], "cd") == 0)
+        {
+            if (args[1] == NULL)
+            {
+                fprintf(stderr, "shellforge: cd: missing path\n");
+            }
+            else
+            {
+                if (chdir(args[1]) != 0)
+                {
+                    perror("shellforge: cd");
+                }
+            }
+
+            // Do not create a child process for cd
+            continue;
+        }
+
+        // =========================
+        // CREATE CHILD PROCESS
+        // =========================
         pid_t pid = fork();
 
         if (pid < 0)
         {
             // fork() failed
-            perror("Fork creation error");
-            continue;
+            perror("shellforge: fork");
         }
-
-        if (pid == 0)
+        else if (pid == 0)
         {
             // Child process
 
             execvp(args[0], args);
 
-            // execvp() returns only if an error occurs
-            perror("Command execution error");
+            // execvp() only returns if an error occurs
+            perror("shellforge: execution");
             exit(EXIT_FAILURE);
         }
         else
         {
             // Parent process
-            // Wait for child to finish
-            if (waitpid(pid, NULL, 0) == -1)
-            {
-                perror("waitpid error");
-            }
+            waitpid(pid, NULL, 0);
         }
     }
 
